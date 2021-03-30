@@ -8,6 +8,7 @@ import React, {useState, useEffect} from "react"
 import Webcam from "react-webcam";
 import axios from 'axios';
 import Map from './components/Map'
+import mockData from './assets/mockData.json'
 // import myModel from 'model.json'
 //const myModel = require('./model.json')
 
@@ -22,19 +23,26 @@ const threshold = 0.7
 function App() {
 
   const webcamRef = React.useRef(null);
+  const [runDetect, setRunDetect] = useState(false)
   const [localBlob, setLocalBlob] = useState(undefined);
   const [videoWidth, setVideoWidth] = useState(960);
   const [videoHeight, setVideoHeight] = useState(640);
-  const [resultPose, setResultPose] = useState('Bridge Pose..')
+  const [resultPose, setResultPose] = useState('')
   const [score, setScore] = useState('')
+  const [numPeople, setNumPeople] = useState('')
 
   const [numPhotos, setNumPhotos] = useState(1);
 
   useEffect(() => {
     const timer = setInterval(() => {
       setNumPhotos(numPhotos + 1);
-      capture()
-    }, 2000);
+
+      if(runDetect)
+      {
+        capture()
+      }
+
+    }, 3000);
                // clearing interval
     return () => clearInterval(timer);
   });
@@ -77,8 +85,6 @@ function App() {
       .then(res => res.blob())
       .then(blob => {
         const file = new File([blob], "File name",{ type: "image/png" })
-        console.log("to file")
-        console.log(file)
         setLocalBlob(file)
       })
   }
@@ -92,12 +98,20 @@ function App() {
 
       if(probability > threshold)
       {
-        setResultPose(tagName + " - "+ probability)
+        setResultPose(tagName) 
         setScore(probability)
+
+        const mockPoints = mockData.find(m => m.name === tagName)
+        if(mockPoints)
+        {
+          const num_people = mockPoints.coordinates.length
+          setNumPeople(num_people)
+        }
+
       } else {
-        // setResultPose("nothing. ( "+ tagName + " - "+ probability + " )")
         setResultPose('')
         setScore('')
+        setNumPeople('')
       }
     }   
   }
@@ -105,7 +119,7 @@ function App() {
   const trySendRequest = async () => {
 
     // console.log(imageData)
-    console.log("trySendRequest")
+    // console.log("trySendRequest")
 
     const customVisionKey = process.env.REACT_APP_CUSTOMVISION_KEY || ''
     const url_image = 'https://customvisionhhs.cognitiveservices.azure.com/customvision/v3.0/Prediction/98e34a44-6f52-47d2-92ec-d42106e3e31f/classify/iterations/Iteration1/image'
@@ -119,7 +133,6 @@ function App() {
 
     try {
         const detectResponse = await axios.post(url_image, localBlob, headers);        
-        console.log(detectResponse);
         parseResult(detectResponse)
         
     } catch (err) {
@@ -160,7 +173,7 @@ function App() {
 
       {/* <div className="mapContainer" style={{width: '100%', height: 500}}> */}
       <div style={{ height: "100vh", width: '100%' }}> 
-        <Map/>
+        <Map poseName={resultPose}/>
       </div>
 
       <div style={{
@@ -172,6 +185,12 @@ function App() {
         color: 'white'
         }}
       >
+
+        <span onClick={() => setRunDetect(true)} style={{marginRight: 20, color: 'green'}}>Start</span>
+        <span onClick={() => setRunDetect(false)} style={{marginRight: 20, color: 'red'}}>Stop</span>
+        {runDetect && 
+          <span> Running..</span>
+        }
 
         {/* <div style={{width: '100%', height: 200, backgroundColor: 'teal'}}></div> */}
 
@@ -188,8 +207,16 @@ function App() {
             }}> {resultPose} </h2>
             {score && <p><i>Probability: {score}</i></p> }
 
+            {numPeople && 
+            <h2 style={{
+              fontSize: '2vw',
+              margin: 0
+            }}> 
+              With {numPeople} other people in the world 
+            </h2>
+            }
+
             <p><i>Number of photos: {numPhotos}</i></p>
-            {/* <h1>{resultPose}</h1> */}
 
           </div>
 
