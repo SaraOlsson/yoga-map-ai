@@ -11,6 +11,8 @@ import Map from './components/Map'
 import mockData from './assets/mockData.json'
 // import myModel from 'model.json'
 //const myModel = require('./model.json')
+import {synthesizeSpeech} from './services/synthSpeech'
+import audio_url from './assets/yoga_music.mp3'
 
 const videoConstraints = {
   width: 640, //320, //640, //1280,
@@ -19,6 +21,7 @@ const videoConstraints = {
 };
 
 const threshold = 0.7
+const VOICE_TIMEOUT_SECONDS = 5
 
 function App() {
 
@@ -28,10 +31,16 @@ function App() {
   const [videoWidth, setVideoWidth] = useState(960);
   const [videoHeight, setVideoHeight] = useState(640);
   const [resultPose, setResultPose] = useState('')
+  const [prevResultPose, setPrevResultPose] = useState('')
   const [score, setScore] = useState('')
   const [numPeople, setNumPeople] = useState('')
 
   const [numPhotos, setNumPhotos] = useState(1);
+
+  const [audio, setAudio] = useState(new Audio(audio_url))
+  const [seconds, setSeconds] = useState(1000)
+
+  // console.log(seconds)
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -39,6 +48,7 @@ function App() {
 
       if(runDetect)
       {
+        console.log("capture")
         capture()
       }
 
@@ -47,7 +57,23 @@ function App() {
     return () => clearInterval(timer);
   });
 
+  // useEffect(() => {
+  //   const timer2 = setInterval(() => {
+  //     setSeconds(seconds + 1);
+
+  //     // if(runDetect)
+  //     // {
+  //     //   capture()
+  //     // }
+
+  //   }, 1000);
+  //              // clearing interval
+  //   return () => clearInterval(timer2);
+  // });
+
   useEffect(() => {
+
+    // synthesizeSpeech()
   
     if (localBlob)
     {
@@ -91,13 +117,16 @@ function App() {
 
   const parseResult = (responseData) => {
 
+    // console.log(responseData)
+
     if(responseData)
     {
       const tagName = responseData.data.predictions[0].tagName
       const probability = responseData.data.predictions[0].probability
 
-      if(probability > threshold)
+      if(probability > threshold && tagName !== 'mountain')
       {
+        setPrevResultPose(resultPose)
         setResultPose(tagName) 
         setScore(probability)
 
@@ -106,6 +135,16 @@ function App() {
         {
           const num_people = mockPoints.coordinates.length
           setNumPeople(num_people)
+
+          if(prevResultPose !== resultPose) ///okToPlayVoice())
+          {
+            const toSay = `${tagName} pose. Together with ${num_people} people in the world.`
+            synthesizeSpeech(toSay)
+            setSeconds(0)
+          } 
+          // else {
+          //   synthesizeSpeech('same pose')
+          // }
         }
 
       } else {
@@ -114,6 +153,12 @@ function App() {
         setNumPeople('')
       }
     }   
+  }
+
+  const okToPlayVoice = () => {
+    const is_ok = seconds > VOICE_TIMEOUT_SECONDS
+    console.log('is_ok: ' + is_ok)
+    return is_ok
   }
 
   const trySendRequest = async () => {
@@ -185,12 +230,13 @@ function App() {
         color: 'white'
         }}
       >
-
+        <span onClick={() => audio.play()}style={{marginRight: 20, color: 'teal'}}>Music on</span>
         <span onClick={() => setRunDetect(true)} style={{marginRight: 20, color: 'green'}}>Start</span>
         <span onClick={() => setRunDetect(false)} style={{marginRight: 20, color: 'red'}}>Stop</span>
         {runDetect && 
           <span> Running..</span>
         }
+        
 
         {/* <div style={{width: '100%', height: 200, backgroundColor: 'teal'}}></div> */}
 

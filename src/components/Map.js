@@ -4,8 +4,8 @@ import mockData from '../assets/mockData.json'
 
 function Map(props) {
   const [viewport, setViewport] = React.useState({
-    latitude: 58.588455,
-    longitude: 16.188313,
+    latitude: 28.124073,
+    longitude: -5.39199390703, // Africa
     zoom: 2
   });
 
