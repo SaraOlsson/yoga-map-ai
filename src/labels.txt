@@ -1,0 +1,10 @@
+bridge
+childs
+downwarddog
+mountain
+plank
+seatedforwardbend
+tree
+trianglepose
+warrior1
+warrior2
