@@ -8,11 +8,16 @@ import React, {useState, useEffect} from "react"
 import Webcam from "react-webcam";
 import axios from 'axios';
 import Map from './components/Map'
+import WebSocketDemo from './components/WebSocketDemo'
 import mockData from './assets/mockData.json'
 // import myModel from 'model.json'
 //const myModel = require('./model.json')
 import {synthesizeSpeech} from './services/synthSpeech'
 import audio_url from './assets/yoga_music.mp3'
+import useBusSubscription from './services/useBusSubscription'
+// import busSubscription from './services/receivefromsubscription'
+import useSendToTopic from './services/useSendToTopic'
+// import blobThing from './services/storage-blob'
 
 const videoConstraints = {
   width: 640, //320, //640, //1280,
@@ -40,7 +45,17 @@ function App() {
   const [audio, setAudio] = useState(new Audio(audio_url))
   const [seconds, setSeconds] = useState(1000)
 
+  // const {closeReceicer, currentData} = useBusSubscription()
+  // const {sendMessage} = useSendToTopic()
+
   // console.log(seconds)
+
+  // useEffect(() => {
+
+  //   console.log(currentData)
+
+  // }, [currentData]);
+  
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -70,6 +85,15 @@ function App() {
   //              // clearing interval
   //   return () => clearInterval(timer2);
   // });
+
+  // useBusSubscription
+  useEffect(() => {
+
+    // blobThing()
+    // sendMessage()
+    // busSubscription()
+
+  }, []);
 
   useEffect(() => {
 
@@ -266,7 +290,9 @@ function App() {
 
           </div>
 
-          {/* <Map/> */}
+          
+          {/* <WebSocketDemo path="/?bridge"/>
+          <WebSocketDemo path=""/> */}
 
           {/* <div style={{ position: "absolute", top: "200px" }}> */}
           <div style={{}}>
