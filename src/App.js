@@ -17,7 +17,9 @@ import audio_url from './assets/yoga_music.mp3'
 import useBusSubscription from './services/useBusSubscription'
 // import busSubscription from './services/receivefromsubscription'
 import useSendToTopic from './services/useSendToTopic'
-// import blobThing from './services/storage-blob'
+import uploadFileToBlob from './services/azure-storage-blob'
+import AzureMap from './components/AzureMap.tsx'
+const { v1: uuidv1} = require('uuid');
 
 const videoConstraints = {
   width: 640, //320, //640, //1280,
@@ -26,7 +28,7 @@ const videoConstraints = {
 };
 
 const threshold = 0.7
-const VOICE_TIMEOUT_SECONDS = 5
+const VOICE_TIMEOUT_SECONDS = 7000
 
 function App() {
 
@@ -43,19 +45,11 @@ function App() {
   const [numPhotos, setNumPhotos] = useState(1);
 
   const [audio, setAudio] = useState(new Audio(audio_url))
-  const [seconds, setSeconds] = useState(1000)
+  const [t0, setT0] = useState(performance.now())
 
   // const {closeReceicer, currentData} = useBusSubscription()
   // const {sendMessage} = useSendToTopic()
 
-  // console.log(seconds)
-
-  // useEffect(() => {
-
-  //   console.log(currentData)
-
-  // }, [currentData]);
-  
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -72,20 +66,6 @@ function App() {
     return () => clearInterval(timer);
   });
 
-  // useEffect(() => {
-  //   const timer2 = setInterval(() => {
-  //     setSeconds(seconds + 1);
-
-  //     // if(runDetect)
-  //     // {
-  //     //   capture()
-  //     // }
-
-  //   }, 1000);
-  //              // clearing interval
-  //   return () => clearInterval(timer2);
-  // });
-
   // useBusSubscription
   useEffect(() => {
 
@@ -101,10 +81,17 @@ function App() {
   
     if (localBlob)
     {
+      
       trySendRequest()
+      saveToBlob()
     } 
 
   }, [localBlob]);
+
+  const saveToBlob = async () => {
+    let currentBlobs = await uploadFileToBlob(localBlob)
+    // console.log(currentBlobs)
+  }
   
   // not working yet
   const detect = async () => {
@@ -131,10 +118,12 @@ function App() {
 
   const toFile = (url) => {
     // const url = 'data:image/png;base6....';
+    const newFileName = "yogapose_" + uuidv1() + ".png"
+    //const newFileName = "childs/" + uuidv1() + ".png"
     fetch(url)
       .then(res => res.blob())
       .then(blob => {
-        const file = new File([blob], "File name",{ type: "image/png" })
+        const file = new File([blob], newFileName,{ type: "image/png" })
         setLocalBlob(file)
       })
   }
@@ -150,7 +139,8 @@ function App() {
 
       if(probability > threshold && tagName !== 'mountain')
       {
-        setPrevResultPose(resultPose)
+        
+        const prev_pose = resultPose
         setResultPose(tagName) 
         setScore(probability)
 
@@ -160,11 +150,13 @@ function App() {
           const num_people = mockPoints.coordinates.length
           setNumPeople(num_people)
 
-          if(prevResultPose !== resultPose) ///okToPlayVoice())
+          if(prevResultPose !== resultPose && okToPlayVoice()) ///okToPlayVoice())
           {
-            const toSay = `${tagName} pose. Together with ${num_people} people in the world.`
+            // const toSay = `${tagName} pose. Together with ${num_people} people in the world.`
+            const toSay = getRandomVoice(tagName, num_people)
             synthesizeSpeech(toSay)
-            setSeconds(0)
+            setT0(performance.now())
+            setPrevResultPose(prev_pose)
           } 
           // else {
           //   synthesizeSpeech('same pose')
@@ -179,10 +171,29 @@ function App() {
     }   
   }
 
+  const getRandomVoice = (tagName, num_people) => {
+
+    const voiceOptions = [
+      `${tagName} pose. Together with ${num_people} people in the world.`,
+      `${tagName} pose. Along with ${num_people} others.`,
+      `${tagName} pose. Currently with people from 3 continents.`,
+      `${tagName} pose. That's you and ${num_people} other yogis around the globe`,
+      `You're currently in the same ${tagName} pose as ${num_people} people`,
+    ]
+
+    const index = Math.floor(Math.random() * voiceOptions.length)
+    return voiceOptions[index]
+  }
+
   const okToPlayVoice = () => {
-    const is_ok = seconds > VOICE_TIMEOUT_SECONDS
-    console.log('is_ok: ' + is_ok)
+    
+    let t1 = performance.now()
+    let diff = t1 - t0
+    const is_ok = diff > VOICE_TIMEOUT_SECONDS
+
+    console.log(diff + 'is_ok: ' + is_ok)
     return is_ok
+
   }
 
   const trySendRequest = async () => {
@@ -191,7 +202,8 @@ function App() {
     // console.log("trySendRequest")
 
     const customVisionKey = process.env.REACT_APP_CUSTOMVISION_KEY || ''
-    const url_image = 'https://customvisionhhs.cognitiveservices.azure.com/customvision/v3.0/Prediction/98e34a44-6f52-47d2-92ec-d42106e3e31f/classify/iterations/Iteration1/image'
+    // const url_image = 'https://customvisionhhs.cognitiveservices.azure.com/customvision/v3.0/Prediction/98e34a44-6f52-47d2-92ec-d42106e3e31f/classify/iterations/Iteration1/image'
+    const url_image = 'https://customvisionhhs.cognitiveservices.azure.com/customvision/v3.0/Prediction/98e34a44-6f52-47d2-92ec-d42106e3e31f/classify/iterations/Iteration2/image'
 
     const headers = { 
         headers: {
@@ -242,7 +254,8 @@ function App() {
 
       {/* <div className="mapContainer" style={{width: '100%', height: 500}}> */}
       <div style={{ height: "100vh", width: '100%' }}> 
-        <Map poseName={resultPose}/>
+        {/* <Map poseName={resultPose}/> */}
+        <AzureMap poseName={resultPose}/>
       </div>
 
       <div style={{

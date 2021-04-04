@@ -65,7 +65,6 @@ function Map(props) {
       onViewportChange={(viewport) => setViewport(viewport)}
       mapStyle="mapbox://styles/sarakolsson/ckmvzf1dv03mc17o3wppcz5tn"
       mapboxApiAccessToken={process.env.REACT_APP_MAPBOX_TOKEN}
-      renderWorldCopies={false} // not working
     >
       <Source id="my-data" type="geojson" data={mockFeatures}>
         <Layer {...layerStyle} />
