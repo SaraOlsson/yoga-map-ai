@@ -1,5 +1,3 @@
-import logo from './logo.svg';
-import blobImg from './assets/blob.svg'
 import './App.css';
 import myImg from './test_image.jpg'
 //const myImg = require('./test_image.jpg')
@@ -42,7 +40,8 @@ function App() {
   const [score, setScore] = useState('')
   const [numPeople, setNumPeople] = useState('')
 
-  const [numPhotos, setNumPhotos] = useState(1);
+  const [numPhotos, setNumPhotos] = useState(0);
+  const [saveImages, setSaveImages] = useState(false)
 
   const [audio, setAudio] = useState(new Audio(audio_url))
   const [t0, setT0] = useState(performance.now())
@@ -53,10 +52,10 @@ function App() {
 
   useEffect(() => {
     const timer = setInterval(() => {
-      setNumPhotos(numPhotos + 1);
 
       if(runDetect)
       {
+        setNumPhotos(numPhotos + 1);
         console.log("capture")
         capture()
       }
@@ -69,7 +68,6 @@ function App() {
   // useBusSubscription
   useEffect(() => {
 
-    // blobThing()
     // sendMessage()
     // busSubscription()
 
@@ -77,13 +75,15 @@ function App() {
 
   useEffect(() => {
 
-    // synthesizeSpeech()
+    // synthesizeSpeech("Have a good evening")
   
     if (localBlob)
     {
       
       trySendRequest()
-      saveToBlob()
+
+      if(saveImages)
+        saveToBlob()
     } 
 
   }, [localBlob]);
@@ -236,21 +236,6 @@ function App() {
           // flexDirection: 'column'
       }}
     >
-      <img src={blobImg} style={{position: 'absolute',
-        width: 600,
-        left: 0,
-        top: 0,
-        zIndex: 1,
-        display: 'none'
-        }}/>
-
-      {/* <h1 style={{position: 'absolute',
-        fontSize: '5vw',
-        left: 40,
-        top: 0,
-        zIndex: 1,
-        color: 'white'
-        }}> Bridge Pose </h1> */}
 
       {/* <div className="mapContainer" style={{width: '100%', height: 500}}> */}
       <div style={{ height: "100vh", width: '100%' }}> 
@@ -273,6 +258,16 @@ function App() {
         {runDetect && 
           <span> Running..</span>
         }
+
+        <label>
+          Save images to shared database
+        <input
+          name="saveImages"
+          type="checkbox"
+          checked={saveImages}
+          onChange={(e) => setSaveImages(e.target.checked)} 
+        />
+        </label>
         
 
         {/* <div style={{width: '100%', height: 200, backgroundColor: 'teal'}}></div> */}
