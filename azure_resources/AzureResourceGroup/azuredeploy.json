@@ -1,0 +1,226 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "speechsku": {
+      "type": "string"
+    },
+    "mapsku": {
+      "type": "string",
+      "allowedValues": [
+        "S0",
+        "S1"
+      ],
+      "defaultValue": "S0",
+      "metadata": {
+        "description": "The pricing tier for map account."
+      }
+    }
+  },
+  "variables": {
+    "prefix": "yogacam",
+    "speechName": "[concat(variables('prefix'), 'speech')]",
+    "storageName": "[concat(variables('prefix'), 'storage')]",
+    "mapName": "[concat(variables('prefix'), 'map')]",
+    "servicebusName": "[concat(variables('prefix'), 'servicebus')]",
+    "cvtrainName": "[concat(variables('prefix'), 'cvtrain')]",
+    "cvpredictName": "[concat(variables('prefix'), 'cvpredict')]"
+  },
+  "resources": [
+    {
+      "name": "[variables('mapName')]",
+      "type": "Microsoft.Maps/accounts",
+      "apiVersion": "2020-02-01-preview",
+      "location": "global",
+      "tags": {
+      },
+      "sku": {
+        "name": "[parameters('mapsku')]"
+      }
+    },
+    {
+      "type": "Microsoft.CognitiveServices/accounts",
+      "apiVersion": "2017-04-18",
+      "name": "[variables('cvtrainName')]",
+      "location": "[resourceGroup().location]",
+      "sku": {
+        "name": "S0"
+      },
+      "kind": "CustomVision.Training",
+      "properties": {
+        "customSubDomainName": "[variables('cvtrainName')]",
+        "privateEndpointConnections": [],
+        "publicNetworkAccess": "Enabled"
+      }
+    },
+    {
+      "type": "Microsoft.CognitiveServices/accounts",
+      "apiVersion": "2017-04-18",
+      "name": "[variables('cvpredictName')]",
+      "location": "[resourceGroup().location]",
+      "sku": {
+        "name": "S0"
+      },
+      "kind": "CustomVision.Prediction",
+      "properties": {
+        "customSubDomainName": "[variables('cvpredictName')]",
+        "privateEndpointConnections": [],
+        "publicNetworkAccess": "Enabled"
+      }
+    },
+    {
+      "apiVersion": "2017-04-18",
+      "name": "[variables('speechName')]",
+      "location": "[resourceGroup().location]",
+      "type": "Microsoft.CognitiveServices/accounts",
+      "kind": "SpeechServices",
+      "sku": {
+        "name": "[parameters('speechsku')]"
+      },
+      "properties": {}
+    },
+    {
+      "name": "[variables('storageName')]",
+      "type": "Microsoft.Storage/storageAccounts",
+      "apiVersion": "2019-06-01",
+      "location": "[resourceGroup().location]",
+      "properties": {
+        "accessTier": "Hot",
+        "minimumTlsVersion": "TLS1_2"
+      },
+      "dependsOn": [],
+      "sku": {
+        "name": "Standard_RAGRS"
+      },
+      "kind": "StorageV2",
+      "tags": {}
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts/blobServices",
+      "apiVersion": "2020-08-01-preview",
+      "name": "[concat(variables('storageName'), '/default')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('storageName'))]"
+      ],
+      "sku": {
+        "name": "Standard_LRS",
+        "tier": "Standard"
+      },
+      "properties": {
+        "cors": {
+          "corsRules": [
+            {
+              "allowedOrigins": [
+                "*"
+              ],
+              "allowedMethods": [
+                "DELETE",
+                "GET",
+                "HEAD",
+                "MERGE",
+                "POST",
+                "OPTIONS",
+                "PUT"
+              ],
+              "maxAgeInSeconds": 86400,
+              "exposedHeaders": [
+                "*"
+              ],
+              "allowedHeaders": [
+                "*"
+              ]
+            }
+          ]
+        },
+        "deleteRetentionPolicy": {
+          "enabled": false
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
+      "apiVersion": "2020-08-01-preview",
+      "name": "[concat(variables('storageName'), '/default/yogadata')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('storageName'))]"
+      ],
+      "properties": {
+        "defaultEncryptionScope": "$account-encryption-key",
+        "denyEncryptionScopeOverride": false,
+        "publicAccess": "Container"
+      }
+    },
+    {
+      "type": "Microsoft.ServiceBus/namespaces",
+      "apiVersion": "2018-01-01-preview",
+      "name": "[variables('servicebusName')]",
+      "location": "North Europe",
+      "sku": {
+        "name": "Standard",
+        "tier": "Standard"
+      },
+      "properties": {
+        "zoneRedundant": false
+      }
+    },
+    {
+      "type": "Microsoft.ServiceBus/namespaces/AuthorizationRules",
+      "apiVersion": "2017-04-01",
+      "name": "[concat(variables('servicebusName'), '/RootManageSharedAccessKey')]",
+      "location": "North Europe",
+      "dependsOn": [
+        "[resourceId('Microsoft.ServiceBus/namespaces', variables('servicebusName'))]"
+      ],
+      "properties": {
+        "rights": [
+          "Listen",
+          "Manage",
+          "Send"
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.ServiceBus/namespaces/topics",
+      "apiVersion": "2018-01-01-preview",
+      "name": "[concat(variables('servicebusName'), '/yogapose')]",
+      "location": "North Europe",
+      "dependsOn": [
+        "[resourceId('Microsoft.ServiceBus/namespaces', variables('servicebusName'))]"
+      ],
+      "properties": {
+        "defaultMessageTimeToLive": "PT1M",
+        "maxSizeInMegabytes": 1024,
+        "requiresDuplicateDetection": false,
+        "duplicateDetectionHistoryTimeWindow": "PT10M",
+        "enableBatchedOperations": true,
+        "status": "Active",
+        "supportOrdering": true,
+        "autoDeleteOnIdle": "P10675199DT2H48M5.4775807S",
+        "enablePartitioning": false,
+        "enableExpress": false
+      }
+    },
+    {
+      "type": "Microsoft.ServiceBus/namespaces/topics/subscriptions",
+      "apiVersion": "2018-01-01-preview",
+      "name": "[concat(variables('servicebusName'), '/yogapose/yoga-subscription')]",
+      "location": "North Europe",
+      "dependsOn": [
+        "[resourceId('Microsoft.ServiceBus/namespaces/topics', variables('servicebusName'), 'yogapose')]",
+        "[resourceId('Microsoft.ServiceBus/namespaces', variables('servicebusName'))]"
+      ],
+      "properties": {
+        "lockDuration": "PT30S",
+        "requiresSession": false,
+        "defaultMessageTimeToLive": "P14D",
+        "deadLetteringOnMessageExpiration": false,
+        "deadLetteringOnFilterEvaluationExceptions": false,
+        "maxDeliveryCount": 10,
+        "status": "Active",
+        "enableBatchedOperations": true,
+        "autoDeleteOnIdle": "P14D"
+      }
+    }
+  ],
+  "outputs": {}
+}
