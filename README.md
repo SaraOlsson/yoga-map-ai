@@ -15,6 +15,11 @@ High level directory structure for this repository:
 ├── images                    <- Images used in the documentation
 ```
 
+## System architecture
+
+![projectGif](images/solution_architecture.png)
+
+
 ## Reproduce
 
 ### Azure Requirements
@@ -36,3 +41,5 @@ First, create an [Azure Account](https://portal.azure.com) and a  resource group
 ## Demo 
 
 ![Client application demo](images/yoga_bridge.gif)
+
+## Next up 
