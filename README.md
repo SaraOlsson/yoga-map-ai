@@ -10,7 +10,7 @@ High level directory structure for this repository:
 
 ```bash
 ├── frontend                  <- Web app built with React.js
-├── azure                     <- Azure related code
+├── azure_resources           <- Azure related code
 │   ├── AzureResourceGroup    <- ARM template for the solution in Azure.
 ├── images                    <- Images used in the documentation
 ```
