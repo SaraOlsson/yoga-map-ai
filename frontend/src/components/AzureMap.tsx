@@ -25,32 +25,51 @@ const option: IAzureMapOptions = {
 const DefaultMap: React.FC = (props: any) => {
 
     const [mockFeatures, setMockFeatures] = React.useState<data.Position[]>([])
+    const [realFeatures, setRealFeatures] = React.useState<data.Position[]>([])
 
     React.useEffect(() => {
 
         if(!props.poseName)
           return
     
-        console.log(props.poseName)
-    
         const mockPoints2 = mockData.find(m => m.name === props.poseName)
         addMock(mockPoints2)
         
       },[props.poseName])
+
+      React.useEffect(() => {
+
+        if(!props.otherUsers || props.otherUsers.length < 1)
+          return
+
+        const realPoints = props.otherUsers.filter((m: any) => m.name === props.poseName)
+        addReal(realPoints)
+        
+      },[props.otherUsers])
     
       const addMock = async (points: any) => {
     
         let geoData: data.Position[] = []
-    
         await Promise.all(
           points.coordinates.map(async (p: any) => {
             await geoData.push(new data.Position(p.lng, p.lat))
           })
         )
-        
-        console.log(geoData)
         setMockFeatures(geoData)
       }
+
+      const addReal = async (points: any[]) => {
+    
+        let geoData: data.Position[] = []
+        await Promise.all(
+          points.map(async (p: any) => {
+            await geoData.push(new data.Position(p.lng, p.lat))
+          })
+        )
+        setRealFeatures(geoData)
+      }
+    
+    const resultData = props.useReal ? realFeatures : mockFeatures
 
     return (
         <AzureMapsProvider>
@@ -62,8 +81,8 @@ const DefaultMap: React.FC = (props: any) => {
                     options={{}}
                     type={'HeatLayer'}
                     />
-                    {
-                        mockFeatures.map((p: data.Position, idx: number) => 
+                    {   
+                        resultData.map((p: data.Position, idx: number) => 
                             <AzureMapFeature
                             id={'LayerExample2 MapFeature2'}
                             key={idx}

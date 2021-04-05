@@ -1,40 +1,34 @@
 import './App.css';
-import myImg from './test_image.jpg'
-//const myImg = require('./test_image.jpg')
+
 import * as cvstfjs from '@microsoft/customvision-tfjs';
 import React, {useState, useEffect} from "react"
 import Webcam from "react-webcam";
 import axios from 'axios';
-import Map from './components/Map'
-import WebSocketDemo from './components/WebSocketDemo'
 import mockData from './assets/mockData.json'
-// import myModel from 'model.json'
-//const myModel = require('./model.json')
 import {synthesizeSpeech} from './services/synthSpeech'
 import audio_url from './assets/yoga_music.mp3'
 import useBusSubscription from './services/useBusSubscription'
-// import busSubscription from './services/receivefromsubscription'
 import useSendToTopic from './services/useSendToTopic'
 import uploadFileToBlob from './services/azure-storage-blob'
 import AzureMap from './components/AzureMap.tsx'
 const { v1: uuidv1} = require('uuid');
 
 const videoConstraints = {
-  width: 640, //320, //640, //1280,
-  height: 480, //240, // 480, //720,
+  width: 640, 
+  height: 480,
   facingMode: "user"
 };
 
-const threshold = 0.7
+const DEFAULT_THRESHOLD = 0.7
 const VOICE_TIMEOUT_SECONDS = 7000
+const USE_SERVICE_BUS = false
+const DEBUG = false
 
 function App() {
 
   const webcamRef = React.useRef(null);
   const [runDetect, setRunDetect] = useState(false)
   const [localBlob, setLocalBlob] = useState(undefined);
-  const [videoWidth, setVideoWidth] = useState(960);
-  const [videoHeight, setVideoHeight] = useState(640);
   const [resultPose, setResultPose] = useState('')
   const [prevResultPose, setPrevResultPose] = useState('')
   const [score, setScore] = useState('')
@@ -42,14 +36,18 @@ function App() {
 
   const [numPhotos, setNumPhotos] = useState(0);
   const [saveImages, setSaveImages] = useState(false)
+  const [threshold, setThreshold] = useState(DEFAULT_THRESHOLD)
 
+  const [otherUsers, setOtherUsers] = useState([])
+
+  const [useMock, setUseMock] = useState(USE_SERVICE_BUS ? false : true)
   const [audio, setAudio] = useState(new Audio(audio_url))
   const [t0, setT0] = useState(performance.now())
 
-  // const {closeReceicer, currentData} = useBusSubscription()
-  // const {sendMessage} = useSendToTopic()
+  const {closeReceiver, currentData} = useBusSubscription(USE_SERVICE_BUS)
+  const {sendMessage, closeSender} = useSendToTopic()
 
-
+  // run capture on interval
   useEffect(() => {
     const timer = setInterval(() => {
 
@@ -65,21 +63,55 @@ function App() {
     return () => clearInterval(timer);
   });
 
-  // useBusSubscription
+  // Send message to Service Topic when we have a pose 
   useEffect(() => {
 
-    // sendMessage()
-    // busSubscription()
+    if(!resultPose)
+      return
 
-  }, []);
+    console.log("new resultpose")
+    if(USE_SERVICE_BUS)
+    {
+      console.log("send message")
+      let temp_message = {name: resultPose, lat: 58.588455, lng: 16.188313}
+      sendMessage(temp_message)
+    }
+    
+  }, [resultPose]);
 
+  // listen to changes in topic subscription
   useEffect(() => {
 
-    // synthesizeSpeech("Have a good evening")
+    if(!currentData)
+      return 
+
+    console.log(currentData)
+
+    if(currentData["name"])
+    {
+      let temp_list = otherUsers.slice(0);
+      temp_list.push(currentData);
+      setOtherUsers(temp_list);
+    }
+
+  }, [currentData]);
+
+  // close service bus reciever on 
+  useEffect(() => {
+    return function cleanup() { 
+      if(USE_SERVICE_BUS)
+      {
+        closeReceiver()
+        closeSender()
+      }
+    }
+  },[]);
+
+  // send request when image data is prepared
+  useEffect(() => {
   
     if (localBlob)
     {
-      
       trySendRequest()
 
       if(saveImages)
@@ -89,25 +121,17 @@ function App() {
   }, [localBlob]);
 
   const saveToBlob = async () => {
-    let currentBlobs = await uploadFileToBlob(localBlob)
-    // console.log(currentBlobs)
+    await uploadFileToBlob(localBlob)
   }
   
-  // not working yet
+  // not working yet 
   const detect = async () => {
 
     let model = new cvstfjs.ClassificationModel();
-    // await model.loadModelAsync(
-    //   "https://org.azureedge.net/predict-model/model.json"
-    // );
-
-    // let model = new cvstfjs.ClassificationModel();
-    await model.loadModelAsync('model.json') // './model.json');
-    // const image = document.getElementById('image');
-    // const result = await model.executeAsync(image);
-    // console.log(result)
+    await model.loadModelAsync('model.json') 
   }
 
+  // capute image from webcam
   const capture = React.useCallback(
     () => {
       const imageSrc = webcamRef.current.getScreenshot(); // base64
@@ -115,11 +139,12 @@ function App() {
     },
     [webcamRef]
   );
-
+  
+  // convert blob data to FIle
   const toFile = (url) => {
     // const url = 'data:image/png;base6....';
     const newFileName = "yogapose_" + uuidv1() + ".png"
-    //const newFileName = "childs/" + uuidv1() + ".png"
+    //const newFileName = "childs/" + uuidv1() + ".png" // possible to change filename later?
     fetch(url)
       .then(res => res.blob())
       .then(blob => {
@@ -128,9 +153,8 @@ function App() {
       })
   }
 
+  // parse and act on classificatoin respons
   const parseResult = (responseData) => {
-
-    // console.log(responseData)
 
     if(responseData)
     {
@@ -144,26 +168,30 @@ function App() {
         setResultPose(tagName) 
         setScore(probability)
 
+        // using mock data for other users atm
         const mockPoints = mockData.find(m => m.name === tagName)
         if(mockPoints)
         {
+          // prepare value
           const num_people = mockPoints.coordinates.length
           setNumPeople(num_people)
 
-          if(prevResultPose !== resultPose && okToPlayVoice()) ///okToPlayVoice())
+          // make sure not repeating or already playing sound
+          if(prevResultPose !== resultPose && okToPlayVoice()) 
           {
-            // const toSay = `${tagName} pose. Together with ${num_people} people in the world.`
+            // get random variant of speech message
             const toSay = getRandomVoice(tagName, num_people)
-            synthesizeSpeech(toSay)
+            synthesizeSpeech(toSay) // trigger play
+
+            // update state
             setT0(performance.now())
             setPrevResultPose(prev_pose)
           } 
-          // else {
-          //   synthesizeSpeech('same pose')
-          // }
+
         }
 
       } else {
+        // clear
         setResultPose('')
         setScore('')
         setNumPeople('')
@@ -186,23 +214,15 @@ function App() {
   }
 
   const okToPlayVoice = () => {
-    
-    let t1 = performance.now()
-    let diff = t1 - t0
-    const is_ok = diff > VOICE_TIMEOUT_SECONDS
 
-    console.log(diff + 'is_ok: ' + is_ok)
-    return is_ok
+    let diff = performance.now() - t0
+    return diff > VOICE_TIMEOUT_SECONDS
 
   }
 
   const trySendRequest = async () => {
 
-    // console.log(imageData)
-    // console.log("trySendRequest")
-
     const customVisionKey = process.env.REACT_APP_CUSTOMVISION_KEY || ''
-    // const url_image = 'https://customvisionhhs.cognitiveservices.azure.com/customvision/v3.0/Prediction/98e34a44-6f52-47d2-92ec-d42106e3e31f/classify/iterations/Iteration1/image'
     const url_image = 'https://customvisionhhs.cognitiveservices.azure.com/customvision/v3.0/Prediction/98e34a44-6f52-47d2-92ec-d42106e3e31f/classify/iterations/Iteration2/image'
 
     const headers = { 
@@ -223,24 +243,13 @@ function App() {
     
 };
 
-  const pickedFile = (event) => {
-    const files = event.target.files
-    console.log(files[0])
-    setLocalBlob(files[0])
-  }
-
   return (
-    <div className="App"
-      style={{
-          // display: 'flex',
-          // flexDirection: 'column'
-      }}
-    >
+    <div className="App">
 
       {/* <div className="mapContainer" style={{width: '100%', height: 500}}> */}
       <div style={{ height: "100vh", width: '100%' }}> 
         {/* <Map poseName={resultPose}/> */}
-        <AzureMap poseName={resultPose}/>
+        <AzureMap poseName={resultPose} useReal={!useMock} otherUsers={otherUsers}/>
       </div>
 
       <div style={{
@@ -259,18 +268,20 @@ function App() {
           <span> Running..</span>
         }
 
-        <label>
-          Save images to shared database
-        <input
-          name="saveImages"
-          type="checkbox"
-          checked={saveImages}
-          onChange={(e) => setSaveImages(e.target.checked)} 
-        />
+        <label style={{marginRight: 20}}>
+            Threshold
+          <input
+            name="threshold"
+            type="number"
+            value={threshold}
+            max={1}
+            step={0.1}
+            min={0.3}
+            onChange={(e) => setThreshold(e.target.value)} 
+          />
         </label>
-        
 
-        {/* <div style={{width: '100%', height: 200, backgroundColor: 'teal'}}></div> */}
+
 
         <div style={{display: 'flex', flexDirection: 'row', justifyContent: 'space-between'}}>
           <div style={{
@@ -295,6 +306,39 @@ function App() {
             }
 
             <p><i>Number of photos: {numPhotos}</i></p>
+
+            { DEBUG && 
+              <>
+              <label style={{marginRight: 20}}>
+              Save images to shared database
+                <input
+                  name="saveImages"
+                  type="checkbox"
+                  checked={saveImages}
+                  onChange={(e) => setSaveImages(e.target.checked)} 
+                />
+              </label>
+
+              <label style={{marginRight: 20}}>
+                  Use simulated users
+                <input
+                  name="useMock"
+                  type="checkbox"
+                  checked={useMock}
+                  onChange={(e) => setUseMock(e.target.checked)} 
+                />
+              </label>
+
+              <label>
+                  Simulate yoga pose
+                <input
+                  name="setPose"
+                  type="text"
+                  onChange={(e) => setResultPose(e.target.value)} 
+                />
+              </label>
+              </>
+            }
 
           </div>
 

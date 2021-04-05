@@ -6,9 +6,8 @@ const connectionString = process.env.REACT_APP_AZURE_STORAGE_BUS || ''
 const topicName = "yogapose";
 const subscriptionName = "yoga-subscription";
 
-function useBusSubscription() {
+function useBusSubscription(run) {
 
-    // console.log("useBusSubscription")
     const [currentData, setCurrentData] = useState(null)
 
     // create a Service Bus client using the connection string to the Service Bus namespace
@@ -16,9 +15,9 @@ function useBusSubscription() {
         new ServiceBusClient(connectionString)
     )
 
-    // // createReceiver() can also be used to create a receiver for a queue.
+    // createReceiver() can also be used to create a receiver for a queue.
     const [receiver] = useState(
-        sbClient.createReceiver(topicName, subscriptionName)
+        run ? sbClient.createReceiver(topicName, subscriptionName) : undefined
     )
 
     useEffect(() => {
@@ -31,17 +30,20 @@ function useBusSubscription() {
 
         console.log("subscribe now")
 
-        // subscribe and specify the message and error handlers
-        receiver.subscribe({
-            processMessage: myMessageHandler,
-            processError: myErrorHandler
-        });
+        // subscribe and specify the message and error handlers 
+        if(run)
+        {
+            receiver.subscribe({
+                processMessage: myMessageHandler,
+                processError: myErrorHandler
+            });
+        }
 
     }, [receiver])
 
     // function to handle messages
     const myMessageHandler = async (messageReceived) => {
-        // console.log(`Received message: ${messageReceived.body}`);
+        // console.log(`Received message: ${messageReceived.body}`); 
         setCurrentData(messageReceived.body)
     };
 
@@ -50,14 +52,14 @@ function useBusSubscription() {
         console.log(error);
     };
 
-    const closeReceicer = async () => {
-  
+    const closeReceiver = async () => {
+        console.log("close receiver")
         await receiver.close(); 
         await sbClient.close();
     }
 
     return {
-        closeReceicer,
+        closeReceiver,
         currentData
     }
 }
