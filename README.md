@@ -64,6 +64,7 @@ REACT_APP_AZURE_STORAGE_BUS=<yourValue>
 
 ## Demo 
 
+[Video demo](https://www.youtube.com/watch?v=c_GEftsVYfE)
 ![Client application demo](images/yoga_bridge.gif)
 
 ## Next up 
