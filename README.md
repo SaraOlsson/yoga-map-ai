@@ -65,10 +65,11 @@ REACT_APP_AZURE_STORAGE_BUS=<yourValue>
 ## Demo 
 
 [Video demo](https://www.youtube.com/watch?v=c_GEftsVYfE)
-![Client application demo](images/yoga_bridge.gif)
+![Client application demo](images/yoga_short.gif)
 
 ## Next up 
 
+- refactoring code, App.js is pretty large .. :)
 - Running inference locally  
 - Finalize the flow of real-time data between clients
 - Being able to extend classes for the model (seamless! If the model doesn't recognize a certain pose, use the Azure AI **speech-to-text** to tell the application to start saving new training data for the specified pose while performing it)
